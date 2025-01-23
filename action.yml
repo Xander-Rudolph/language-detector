@@ -1,112 +1,109 @@
-name: 'Convert TRX output to a PR'
+name: 'Language Detector'
 author: 'xander-rudolph'
 branding:
   icon: 'north-star'
   color: 'green'
-description: 'Parses a trx into a PR'
+description: 'Detects langagues and their paths'
 inputs:
   working_dir:
     description: "Working path for exec"
     required: false
     default: .
-  trx_dir:
-    description: "Directory to search for TRX files"
+  fetch-depth:
+    description: "Number of levels to check down for languages"
     required: false
-    default: TestResults
-
+    default: "1"
+    
 runs:
   using: composite
   steps:
-    - name: Setup Node
-      uses: actions/setup-node@v4
+    - name: Checkout repo
+      uses: actions/checkout@v4
       with:
-        node-version: '20'
+        path: lang-detector
 
-    - name: Install Dependencies
-      shell: bash
+    - name: Identify languages in each folder
+      id: language-detection
+      working-directory: lang-detector/${{ inputs.working_dir }}
+      shell: pwsh
       run: |
-        cd ${{ inputs.working_dir }}
-        npm init -y
-        npm install xmldom glob
-
-    - name: Create TRX Parser Script
-      shell: bash
-      working-directory: ${{ inputs.working_dir }}
-      run: |
-        cat > trx-parser.js << 'EOF'
-        const fs = require('fs');
-        const { DOMParser } = require('xmldom');
-        const glob = require('glob');
-
-        module.exports = async ({ github, context, core }) => {
-          const filePath = `${{ inputs.trx_dir }}/**/*.trx`;
-          const files = glob.sync(filePath);
-
-          if (files.length === 0) {
-            core.setFailed(`No TRX report found in ${{ inputs.trx_dir }}`);
-            return;
-          }
-
-          const file = files[0];
-          let content;
-          try {
-            content = fs.readFileSync(file, 'utf8');
-          } catch (error) {
-            core.setFailed(`Failed to read the TRX report: ${error.message}`);
-            return;
-          }
-
-          const parser = new DOMParser();
-          const xmlDoc = parser.parseFromString(content, 'text/xml');
-
-          const results = {
-            total: 0,
-            passed: 0,
-            failed: 0,
-            skipped: 0
-          };
-
-          const testResultNodes = xmlDoc.getElementsByTagName('UnitTestResult');
-          
-          for (let i = 0; i < testResultNodes.length; i++) {
-            const result = testResultNodes[i];
-            const outcome = result.getAttribute('outcome');
-
-            results.total++;
-
-            switch (outcome) {
-              case 'Passed':
-                results.passed++;
-                break;
-              case 'Failed':
-                results.failed++;
-                break;
-              case 'NotExecuted':
-                results.skipped++;
-                break;
+        $result= @{}
+        $depth=${{ inputs.fetch-depth }}
+        $files = Get-ChildItem -Recurse -File -Depth $depth  
+        foreach ($file in $files) {
+            $pathName = $file.Directory.FullName -replace [regex]::Escape($PWD.Path), ""
+            if (-not $pathName) { $pathName = '.' }
+            switch ($file.Extension.ToLowerInvariant()) {
+                ".js"       { $result["JavaScript"] += @($pathName); break }
+                ".ts"       { $result["TypeScript"] += @($pathName); break }
+                ".java"     { $result["Java"] += @($pathName); break }
+                ".py"       { $result["Python"] += @($pathName); break }
+                ".cpp"      { $result["Cpp"] += @($pathName); break }
+                ".go"       { $result["Go"] += @($pathName); break }
+                ".rb"       { $result["Ruby"] += @($pathName); break }
+                ".php"      { $result["PHP"] += @($pathName); break }
+                ".swift"    { $result["Swift"] += @($pathName); break }
+                ".kt"       { $result["Kotlin"] += @($pathName); break }
+                ".scala"    { $result["Scala"] += @($pathName); break }
+                ".rs"       { $result["Rust"] += @($pathName); break }
+                ".dart"     { $result["Dart"] += @($pathName); break }
+                ".html"     { $result["HTML"] += @($pathName); break }
+                ".css"      { $result["CSS"] += @($pathName); break }
+                ".xml"      { $result["XML"] += @($pathName); break }
+                ".json"     { $result["JSON"] += @($pathName); break }
+                ".sh"       { $result["Shell"] += @($pathName); break }
+                ".ps1"      { $result["PowerShell"] += @($pathName); break }
+                ".sql"      { $result["SQL"] += @($pathName); break }
+                ".pl"       { $result["Perl"] += @($pathName); break }
+                ".lua"      { $result["Lua"] += @($pathName); break }
+                ".r"        { $result["R"] += @($pathName); break }
+                ".m"        { $result["MATLAB"] += @($pathName); break }
+                ".mm"       { $result["Objective-C++"] += @($pathName); break }
+                ".hs"       { $result["Haskell"] += @($pathName); break }
+                ".erl"      { $result["Erlang"] += @($pathName); break }
+                ".clj"      { $result["Clojure"] += @($pathName); break }
+                ".groovy"   { $result["Groovy"] += @($pathName); break }
+                ".f90"      { $result["Fortran"] += @($pathName); break }
+                ".vhdl"     { $result["VHDL"] += @($pathName); break }
+                ".md"       { $result["Markdown"] += @($pathName); break }
+                ".tex"      { $result["LaTeX"] += @($pathName); break }
+                ".jl"       { $result["Julia"] += @($pathName); break }
+                ".bat"      { $result["Batch"] += @($pathName); break }
+                ".tsx"      { $result["TypeScript JSX"] += @($pathName); break }
+                ".jsx"      { $result["JavaScript JSX"] += @($pathName); break }
+                ".coffee"   { $result["CoffeeScript"] += @($pathName); break }
+                ".rkt"      { $result["Racket"] += @($pathName); break }
+                {
+                    $_ -eq ".cs" `
+                    -or $_ -eq ".csproj" `
+                    -or $_ -eq ".sln"
+                } { $result["C-sharp"] += @($pathName); break }
+                {
+                    $_ -eq ".c" `
+                    -or $_ -eq ".h" `
+                } { $result["C"] += @($pathName); break }
+                {
+                    $_ -eq ".yaml" `
+                    -or $_ -eq ".yml" `
+                } { $result["YAML"] += @($pathName); break }
+                {
+                    $_ -eq ".asm" `
+                    -or $_ -eq ".s" `
+                } { $result["Assembly"] += @($pathName); break }
             }
-          }
-
-          const summary = `## Test Summary
-          🧪 Total Tests: ${results.total}
-          ✅ Passed Tests: ${results.passed}
-          ❌ Failed Tests: ${results.failed}
-          ⏩ Skipped Tests: ${results.skipped}
-
-          Detailed report available in \`${file}\`.`;
-
-          await github.rest.issues.createComment({
-            issue_number: context.issue.number,
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            body: summary,
-          });
-        };
-        EOF
-
-    - name: Comment on PR with TRX summary
-      uses: actions/github-script@v7
-      with:
-        script: |
-          const parseTrxResults = require('./trx-parser.js')
-          await parseTrxResults({ github, context, core })
+            # TODO: INSERT FUZZY STUFF HERE - it should be a passthru of some sort
+            switch ($file.Name) {
+                {$_ -like "Xander-Rudolph*"} { $result["Xanderu"] += @($pathName); break }
+            }
+        }
+        $keys = $result.Keys | Sort-Object | Get-Unique
+        foreach ($key in $keys) {
+          $result[$key] = $result[$key] | Sort-Object | Get-Unique
+        }
+    
+        $jsonOutput = $result | ConvertTo-Json -Compress
+        Write-Warning "the following results found:`n $jsonOutput"
+        # Escape the JSON output and ensure it's a single line so it can be used as an output
+        $escapedJson = $jsonOutput -replace "\r", "" -replace "\n", ""
+        Write-Warning "the following escaped string will be passed:`n $escapedJson"
+        echo "languagePaths=$escapedJson" >> $env:GITHUB_OUTPUT
