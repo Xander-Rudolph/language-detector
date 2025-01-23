@@ -35,7 +35,7 @@ runs:
         $depth=${{ inputs.fetch-depth }}
         $files = Get-ChildItem -Recurse -File -Depth $depth  
         foreach ($file in $files) {
-            $pathName = $file.Directory.FullName -replace [regex]::Escape($PWD.Path), ""
+            $pathName = Join-Path $($file.Directory.FullName -replace [regex]::Escape($PWD.Path), "") .
             if (-not $pathName) { $pathName = '.' }
             switch ($file.Extension.ToLowerInvariant()) {
                 ".js"       { $result["JavaScript"] += @($pathName); break }
