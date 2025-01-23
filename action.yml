@@ -13,6 +13,10 @@ inputs:
     description: "Number of levels to check down for languages"
     required: false
     default: "1"
+outputs:
+  languagePaths:
+    description: "All language paths"
+    value: ${{ steps.language-detection.outputs.languagePaths }}
     
 runs:
   using: composite
